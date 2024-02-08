@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <link rel="stylesheet" href="./element-plus.css">
+    <style>* { font-family: Consolas, "宋体", monospace; }</style>
+    <style>input, button { padding: 1em; }</style>
+    <style>#loginError:empty {display: none;}</style>
+</head>
+<body>
+
+<dialog id="dlg">
+    <h1 style="text-align: center;">用户登录</h1>
+
+    <form action="auth.php?autoredirect=true" method="POST" id="main" style="display: flex; flex-direction: column;">
+        <label style="display: flex; margin-bottom: 1em; align-items: center;">
+            <div style="margin-right: 1em;">账号</div>
+            <input type="text" name="user" id="username" style="flex: 1" required>
+        </label>
+        <label style="display: flex; margin-bottom: 1em; align-items: center;">
+            <div style="margin-right: 1em;">密码</div>
+            <input type="password" name="token" id="token" style="flex: 1" required>
+        </label>
+
+        <p id="loginError" style="color: red; margin-top: 0;"></p>
+
+        <div style="display: flex;"><button type="submit" class="el-button el-button--primary is-plain" style="flex: 1; font-size: x-large; height: 2em;">登录</button></div>
+    </form>
+
+    <dialog id="logging">正在登录，请稍候...</dialog>
+
+</dialog>
+
+    <script>
+        async function login(username = '', tok = '') { 
+            try {
+                const fd = new FormData();
+                fd.append('user', username);
+                fd.append('token', tok);
+                const resp = await fetch('./auth.php', {
+                    method: 'POST',
+                    body: fd
+                });
+                if (!resp.ok) {
+                    if (resp.status == 401 || resp.status == 403) throw TypeError('账号或密码错误');
+                    throw `HTTP Error ${resp.status}: ${resp.statusText}`;
+                }
+                const text = await resp.text();
+                if (resp.ok) return true;
+                throw text;
+            } catch (error) {
+                throw error;
+            }
+        }
+        login().then(() => {
+            location = './';
+        }).catch(() => { });
+        main.onsubmit = async (ev) => {
+            ev.preventDefault();
+            logging.showModal();
+
+            login(username.value, token.value).then(() => {
+                main.submit();
+            }).catch(err => loginError.innerText = err).finally(() => {
+                logging.close();
+            });
+
+
+        };
+        dlg.oncancel = ev => {
+            ev.preventDefault();
+            token.value = '';
+        };
+        logging.oncancel = ev => ev.preventDefault();
+        dlg.showModal();
+    </script>
+</body>
+</html>
