@@ -1,0 +1,80 @@
+<div style="position: absolute; inset: 0;">
+<style>*{ font-family: Consolas, "宋体", monospace;}</style>
+
+<resizable-widget open ref="box">
+    <div slot="widget-caption" style="display: flex; justify-content: space-between;">
+        <span>
+            <span>{{username}}<span v-if="!!username">@</span></span>
+            <span>成语接龙</span>
+        </span>
+        <div style="font-family: 'SDK_SC_Web', monospace; display: flex;">
+            <div v-show="networkTimeout >= 0" :style="networkTimeout_style">{{networkTimeout}}ms</div>
+            <a href="#" style="margin-left: 0.5em;" v-show="!!username" @click.prevent="logout" data-exclude-bindmove>退出</a>
+        </div>
+    </div>
+
+    <main>
+        <div class=login-ui v-deep v-if="current_page === 'login'" style="max-width: 50%; min-width: 250px;">
+            <ElForm size="large" :model="login_form" label-width="40px" @submit.prevent="uLogin">
+                <ElFormItem label="账号">
+                    <ElInput required v-model="login_form.name" />
+                </ElFormItem>
+                
+                <ElFormItem label="密码">
+                    <ElInput required v-model="login_form.pswd" type="password" />
+                </ElFormItem>
+
+                <ElFormItem label="登录">
+                    <button type="submit" :disabled="isLogging" style="flex: 1; display: flex;"><ElButton type="primary" plain :disabled="isLogging" style="flex: 1;">立即登录</ElButton></button>
+                </ElFormItem>
+            </ElForm>
+            <style>.login-ui>>> button[type="submit"]{all:initial}</style>
+        </div>
+
+        <div class=xbig v-if="current_page === 'new'">
+            <div class="bold">创建会话...</div>
+            <ElButton type="primary" plain size="large" @click="createSession">立即创建</ElButton>
+            <hr>
+            <div class="bold">加入会话...</div>
+            <form @submit.prevent="joinSession" style="display: flex; align-items: center;">
+                <ElInput type="text" v-model="addsess_value" size="large" required style="flex: 1" placeholder="会话 ID..." :clearable="true" />
+                <ElButton @click="joinSession" type="primary" plain size="large" style="margin-left: 0.5em">立即加入</ElButton>
+            </form>
+        </div>
+
+        <div v-if="current_page === 'inProgress'">
+            <ElCard>
+                <div class="card-header" v-deep>
+                    <span style="user-select: none;">会话 ID: <span style="user-select: all;" v-text="sessionId"></span></span>
+                    <span>
+                        <ElButton text @click="copySid">复制</ElButton>
+                        <ElButton type="danger" text @click="endSess" v-if="canEndSess">结束</ElButton>
+                        <ElButton type="danger" text @click="leaveSess" v-else>离开</ElButton>
+                    </span>
+                </div>
+                <style>
+                .card-header>>> {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .card-header>>> button {
+                    margin-left: 0;
+                }
+                </style>
+            </ElCard>
+            <div style="flex: 1" id="mainInputArea">
+                <style>.user-input-widget>>> {
+                    scale: 2;
+                    max-width: 50%;
+                }.user-input-widget>>> input {
+                    text-align: center;
+                    font-size: x-large;
+                }</style>
+                <div class="user-input-widget" v-deep><ElInput v-model="userInput" size="large" /></div>
+            </div>
+        </div>
+    </main>
+</resizable-widget>
+
+</div>

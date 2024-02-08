@@ -18,8 +18,37 @@
     <ClCompile Include="IdiomDragonApp.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\resource\tool.cpp">
+      <Filter>资源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="server.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ui.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="libs.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="server-ws.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\resource\tool.h">
+      <Filter>资源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ctls.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="server.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ui.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
