@@ -15,6 +15,7 @@
 }
 
 constexpr auto SessCookieName = "IDIOMDRAGONAPP_SESSION";
+constexpr auto CreditCookieName = "IDIOMDRAGONAPP_CREDITS";
 
 
 
@@ -29,16 +30,31 @@ namespace server {
 		string pswd;
 	};
 
+	constexpr size_t MEMBER_CAN_SKIP_TIME = 5;
+
+	//class ServiceSessionMemberData {
+	//public:
+	//
+	//};
+
 	class ServiceSession
 	{
 	public:
-		ServiceSession() = default;
+		ServiceSession() : state(0), current_dragon_user_index(-1), l_aiMode(false) {};
 		~ServiceSession() = default;
 	public:
 		string host;
-		vector<string> members;
+		//vector<ServiceSessionMember> members;
+		unordered_map<string, vector<WebSocketConnectionPtr>> members;
+		unordered_map<string, size_t> membersSkipChance;
+		vector<string> membersOrder;
+		unordered_set<string> losers;
 
 		long long state;
+		deque<string> phrases;
+		long long current_dragon_user_index;
+
+		bool l_aiMode;
 
 	};
 
@@ -54,12 +70,15 @@ namespace server {
 	{
 	public:
 		METHOD_LIST_BEGIN
-			ADD_METHOD_TO(server::MainServer::auth, "/api/auth", Post, Options, "server::AuthFilter");
+			ADD_METHOD_TO(server::MainServer::auth, "/api/auth", Post, Options);
 			ADD_METHOD_TO(server::MainServer::login, "/api/auth/login", Post, Options);
+			ADD_METHOD_TO(server::MainServer::reg, "/api/auth/register", Post, Options);
 			ADD_METHOD_TO(server::MainServer::logout, "/api/auth/logout", Post, Options, "server::AuthFilter");
+			ADD_METHOD_TO(server::MainServer::editPassword, "/api/auth/type/password/edit", Post, Options, "server::AuthFilter");
 			ADD_METHOD_TO(server::MainServer::isSessionExpired, "/api/auth/isExpired", Get, Post, Options);
 
 			ADD_METHOD_TO(server::MainServer::meinfo, "/api/me", Get, "server::AuthFilter");
+			ADD_METHOD_TO(server::MainServer::accountpunishinfo, "/api/account-punish/query", Get, "server::AuthFilter");
 
 		METHOD_LIST_END
 
@@ -67,10 +86,14 @@ namespace server {
 
 		void auth(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 		void login(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
+		void reg(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 		void logout(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
+		void editPassword(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 		void isSessionExpired(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 
 		void meinfo(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
+
+		void accountpunishinfo(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 
 	public:
 

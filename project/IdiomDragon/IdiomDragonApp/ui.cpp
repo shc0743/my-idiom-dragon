@@ -418,6 +418,7 @@ using namespace std;
 		data->Split4 = text(L"", 0, 0, 1, 1, WS_BORDER);
 		data->bEditUser = button(L"用户管理...", 8, 0, 0, 1, 1, WS_DISABLED);
 
+		SendMessage(data->cAllowGlobAccess, BM_SETCHECK, BST_CHECKED, 0);
 
 
 #undef MYCTLS_VAR_HFONT
@@ -578,7 +579,7 @@ LRESULT WndProc_CommandHandler_Main(HWND hwnd, WPARAM wParam, LPARAM lParam, Wnd
 		}
 			
 		RECT rc{}; GetWindowRect(data->bEditUser, &rc);
-		int nResult = TrackPopupMenu(h, TPM_RETURNCMD, rc.left, rc.bottom, 0, hwnd, NULL);
+		int nResult = TrackPopupMenu(h, TPM_RETURNCMD | TPM_RIGHTBUTTON, rc.left, rc.bottom, 0, hwnd, NULL);
 		//DestroyMenu(h);
 
 		if (!nResult) break;

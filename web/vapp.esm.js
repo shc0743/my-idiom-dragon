@@ -31,9 +31,7 @@ import { createApp } from 'vue';
 // break long tasks
 await delay();
 
-updateLoadStat('Loading element-plus.css');
 import { addCSS } from './BindMove.js';
-fetch('./modules/element-plus/element-plus.css').then(v => v.text()).then(addCSS).catch(err => reportFatalError('无法加载 Element-Plus 样式表: ' + err));
 
 // break long tasks
 await delay();

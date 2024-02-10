@@ -1,7 +1,9 @@
+<link rel="stylesheet" href="./modules/element-plus/element-plus.css">
 <div style="position: absolute; inset: 0;">
 <style>*{ font-family: Consolas, "宋体", monospace;}</style>
 
-<resizable-widget open ref="box">
+<resizable-widget v-deep open ref="box">
+    <style>#myApp resizable-widget>>> { min-width: 360px; min-height: 330px; }</style>
     <div slot="widget-caption" style="display: flex; justify-content: space-between;">
         <span>
             <span>{{username}}<span v-if="!!username">@</span></span>
@@ -23,34 +25,92 @@
                 <ElFormItem label="密码">
                     <ElInput required v-model="login_form.pswd" type="password" />
                 </ElFormItem>
+                
+                <ElFormItem label="记住">
+                    <ElCheckbox v-model="login_form.remember" label="30天内记住我的登录凭据，以便下次可以自动登录" style="white-space: normal;" />
+                </ElFormItem>
 
                 <ElFormItem label="登录">
                     <button type="submit" :disabled="isLogging" style="flex: 1; display: flex;"><ElButton type="primary" plain :disabled="isLogging" style="flex: 1;">立即登录</ElButton></button>
                 </ElFormItem>
+
+                <ElFormItem label="没有账号">
+                    <ElButton :disabled="isLogging" style="flex: 1;" @click="current_page = 'reg'">没有账号，去注册</ElButton>
+                </ElFormItem>
             </ElForm>
-            <style>.login-ui>>> button[type="submit"]{all:initial}</style>
+        </div>
+        <style>.login-ui>>> button[type="submit"]{all:initial}</style>
+        <div class=login-ui v-deep v-if="current_page === 'reg'" style="max-width: 50%; min-width: 250px;">
+            <ElForm size="large" :model="reg_form" label-width="40px" @submit.prevent="uRegister">
+                <ElFormItem label="账号">
+                    <ElInput required v-model="reg_form.name" />
+                </ElFormItem>
+                
+                <ElFormItem label="密码">
+                    <ElInput required v-model="reg_form.pswd" type="password" />
+                </ElFormItem>
+
+                <ElFormItem label="注册">
+                    <button type="submit" :disabled="isLogging" style="flex: 1; display: flex;"><ElButton type="primary" plain :disabled="isLogging" style="flex: 1;">立即注册</ElButton></button>
+                    <ElButton :disabled="isLogging" style="margin-left: 0.5em;" @click="current_page = 'login'">返回</ElButton>
+                </ElFormItem>
+            </ElForm>
         </div>
 
         <div class=xbig v-if="current_page === 'new'">
-            <div class="bold">创建会话...</div>
-            <ElButton type="primary" plain size="large" @click="createSession">立即创建</ElButton>
+            <div class="bold">创建对局...</div>
+            <ElButton type="primary" plain size="large" @click="createOrJoinSession(false)">立即创建</ElButton>
             <hr>
-            <div class="bold">加入会话...</div>
-            <form @submit.prevent="joinSession" style="display: flex; align-items: center;">
-                <ElInput type="text" v-model="addsess_value" size="large" required style="flex: 1" placeholder="会话 ID..." :clearable="true" />
-                <ElButton @click="joinSession" type="primary" plain size="large" style="margin-left: 0.5em">立即加入</ElButton>
+            <div class="bold">加入对局...</div>
+            <form @submit.prevent="createOrJoinSession(true)" style="display: flex; align-items: center;">
+                <ElInput type="text" v-model="addsess_value" size="large" required style="flex: 1" placeholder="对局 ID..." :clearable="true" />
+                <ElButton @click="createOrJoinSession(true)" type="primary" plain size="large" style="margin-left: 0.5em">立即加入</ElButton>
             </form>
+            <hr>
+            <div class="bold">更改密码...</div>
+            <ElButton type="primary" plain size="large" @click="current_page = 'change_password'">立即更改</ElButton>
         </div>
 
-        <div v-if="current_page === 'inProgress'">
+        <div class=login-ui v-deep v-if="current_page === 'change_password'" style="max-width: 50%; min-width: 250px;">
+            <ElForm size="large" :model="chpswd" label-width="40px" @submit.prevent="changePswd">
+                <ElFormItem label="原密码">
+                    <ElInput required v-model="chpswd.pswd1" type="password" />
+                </ElFormItem>
+                <ElFormItem label="新密码">
+                    <ElInput required v-model="chpswd.pswd2" type="password" />
+                </ElFormItem>
+                <ElFormItem label="确认密码">
+                    <ElInput required v-model="chpswd.pswd3" type="password" />
+                </ElFormItem>
+
+                <ElFormItem label="更改密码">
+                    <button type="submit" :disabled="isLogging" style="flex: 1; display: flex;"><ElButton type="primary" plain :disabled="isLogging" style="flex: 1;">立即更改</ElButton></button>
+                </ElFormItem>
+            </ElForm>
+        </div>
+
+        <div v-if="current_page === 'run'">
             <ElCard>
                 <div class="card-header" v-deep>
-                    <span style="user-select: none;">会话 ID: <span style="user-select: all;" v-text="sessionId"></span></span>
+                    <span style="user-select: none;">对局 ID: <span style="user-select: all;" v-text="sessionId"></span></span>
                     <span>
                         <ElButton text @click="copySid">复制</ElButton>
-                        <ElButton type="danger" text @click="endSess" v-if="canEndSess">结束</ElButton>
+                        <ElButton type="danger" text @click="endSess" v-if="isHost">结束</ElButton>
                         <ElButton type="danger" text @click="leaveSess" v-else>离开</ElButton>
                     </span>
+                </div>
+                <div class="semem" v-deep v-if="semembers">
+                    <span>成员: (<span v-text="semembers.length"></span>)</span>
+                    <a href="#" @click.prevent="sememctl(true)" style="margin-left: 0.5em;">查看</a>
+                </div>
+                <div v-deep class="card-header" v-if="roundCount > 0">
+                    <div>
+                        <span>对局记录:</span>
+                        <span style="margin-left: 0.5em;">第{{roundCount}}轮</span>
+                    </div>
+                    <div>
+                        <ElButton text @click="viewRecord">查看</ElButton>
+                    </div>
                 </div>
                 <style>
                 .card-header>>> {
@@ -61,18 +121,74 @@
                 .card-header>>> button {
                     margin-left: 0;
                 }
+                .semem>>> {
+                    text-align: left;
+                }
+                .semembers:modal>>> {
+                    display: flex;
+                }
                 </style>
             </ElCard>
-            <div style="flex: 1" id="mainInputArea">
-                <style>.user-input-widget>>> {
-                    scale: 2;
-                    max-width: 50%;
-                }.user-input-widget>>> input {
-                    text-align: center;
-                    font-size: x-large;
-                }</style>
-                <div class="user-input-widget" v-deep><ElInput v-model="userInput" size="large" /></div>
+            <dialog v-deep class="semembers" ref="sememdlg" style="min-width: 300px; flex-direction: column;">
+                <div style="font-size: xx-large; font-weight: bold;">对局成员</div>
+                <ElTable :data="semembersComputed" stripe style="width: 100%; flex: 1; overflow: auto;">
+                    <ElTableColumn prop="name" label="用户名" />
+                    <ElTableColumn fixed="right" label="操作" width="90">
+                        <template #default="scope">
+                            <ElButton plain type="danger" v-if="isHost" @click="leaveSessByUserIndex(scope.$index)">请离</ElButton>
+                        </template>
+                    </ElTableColumn>
+                </ElTable>
+
+                <div style="text-align: right; margin-top: 1em;">
+                    <ElButton type="primary" plain @click="sememctl(false)">关闭</ElButton>
+                </div>
+            </dialog>
+            <div style="flex: 1" class="app-area" v-if="sestate === 1">
+                <div style="font-size: 2em; font-weight: bold;">正在等待他人加入...</div>
+                <div v-if="semembers" style="margin: 1em 0;">已加入: {{semembers.length}} (<a href="#" @click.prevent="sememctl(true)">点击查看</a>)</div>
+                <div v-if="isHost">
+                    <ElButton type=primary plain size="large" @click="StartGame" :disabled="IsGameStarting">在完成加入后，点击此按钮进入下一步</ElButton>
+                </div>
             </div>
+            <div style="flex: 1" class="app-area" v-if="sestate === 2">
+                <template v-if="isHost">
+                    <div style="font-size: 2em; font-weight: bold;">输入一个成语，开始接龙</div>
+                    <div class="user-input-widget" v-deep><ElInput v-model="userInput_beg" size="large" /></div>
+                    <div>
+                        <ElButton type=primary plain size="large" @click="StartGame(2)">开始</ElButton>
+                    </div>
+                </template>
+                <template v-else>
+                    <h1>请耐心等待<span v-if="semembers" v-text="semembers[0]"></span>开始接龙。</h1>
+                </template>
+            </div>
+            <div style="flex: 1" id="mainInputArea" class="app-area" v-if="sestate === 16">
+                <template v-if="currentDragon === username">
+                    <div>当前接龙: <b style="color: red">轮到你了</b></div>
+                    <div>当前成语: <span>{{currentPhrase}}</span></div>
+                    <div class="user-input-widget" v-deep><ElInput v-model="userInput" size="large" placeholder="请接..." @keydown.enter.prevent="SubmitDragon" /></div>
+                    <div>
+                        <ElButton type="primary" plain size="large" @click="SubmitDragon" :disabled="!userInput">提交</ElButton>
+                        <!-- <ElButton type="info" plain size="large" @click="submitAppeal" v-if="canAppeal">申诉</ElButton> -->
+                        <ElButton type="warning" plain size="large" @click="getSkip">跳过</ElButton>
+                        <ElButton type="danger" plain size="large" @click="imLoser" :disabled="!!userInput">认输</ElButton>
+                    </div><div style="margin-top: 1em;">
+                        <!-- <ElButton color="#626aef" plain size="large" @click="getTip">求助</ElButton> -->
+                    </div>
+                </template>
+                <div v-else style="font-size: x-large;">
+                    <div>当前接龙: <span>{{currentDragon}}</span></div>
+                    <div>当前成语: <span>{{currentPhrase}}</span></div>
+                </div>
+            </div>
+            <style>.user-input-widget>>> {
+                max-width: 50%;
+                margin: 1em 0;
+            }.user-input-widget>>> input {
+                text-align: center;
+                font-size: x-large;
+            }</style>
         </div>
     </main>
 </resizable-widget>

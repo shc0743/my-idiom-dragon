@@ -12,6 +12,7 @@
 #include "ui.h"
 
 HINSTANCE hInst;
+using namespace std;
 
 #pragma comment(linker,"\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
@@ -19,6 +20,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 
 void InitAuthTokenVerify(CmdLineW& cl);
+extern unordered_set<string> idioms_database;
 
 
 // wWinMain function: The application will start from here.
@@ -90,10 +92,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		ConvertUTF16ToUTF8(sslCert, s_sslCrt);
 
 
+		fstream fp("database.txt", ios::in);
+		if (fp) {
+			char buffer[256]{};
+			while (fp.getline(buffer, 256)) {
+				idioms_database.insert(buffer);
+			}
+			fp.close();
+		}
+		else {
+			LOG_ERROR << "database not found";
+		}
+
+
 		std::shared_ptr<server::MainServer> srv(new server::MainServer);
 		auto& app = drogon::app();
 		app.setLogPath("./")
-			.setLogLevel(trantor::Logger::kDebug)
+			.setLogLevel(trantor::Logger::kInfo)
 			.setDocumentRoot(s_webroot)
 			.setUploadPath(s_upload)
 			.setThreadNum(8)
