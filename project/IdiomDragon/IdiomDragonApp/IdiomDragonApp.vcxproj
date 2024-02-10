@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\resource\tool.cpp" />
+    <ClCompile Include="..\lib\Pinyin.cpp" />
     <ClCompile Include="IdiomDragonApp.cpp" />
     <ClCompile Include="libs.cpp" />
     <ClCompile Include="server-ws.cpp" />
@@ -163,6 +164,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\resource\tool.h" />
+    <ClInclude Include="..\lib\Pinyin.h" />
     <ClInclude Include="ctls.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="ui.h" />

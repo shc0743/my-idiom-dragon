@@ -2,6 +2,7 @@
 #include <string>
 #include "../../resource/tool.h"
 #include <openssl/evp.h>
+#include "../lib/Pinyin.h"
 using namespace server;
 using namespace drogon;
 
@@ -392,6 +393,12 @@ void server::MainServer::editPassword(const HttpRequestPtr& req, std::function<v
 			i.pswd = newPswd; break;
 		}
 	}
+	// Çå¿ÕµÇÂ¼Ì¬
+	vector<string> sessestodelete;
+	for (const auto& i : loginSess2UserName) {
+		if (i.second == uname && i.first != sess) sessestodelete.push_back(i.first);
+	}
+	for (auto& i : sessestodelete) loginSess2UserName.erase(i);
 	mx.unlock();
 
 	resp->setContentTypeCode(CT_APPLICATION_JSON);
@@ -459,6 +466,25 @@ void server::MainServer::accountpunishinfo(const HttpRequestPtr& req, std::funct
 	if (uname == L"ÂèÂè" || uname == L"°Ö°Ö") resp->setBody(ConvertUTF16ToUTF8(L"½±Àø"));
 	else resp->setBody(ConvertUTF16ToUTF8(L"<a target=_blank href=\"https://genshin.hoyoverse.com/en/character/Fontaine?char=6\">Ü½ÄþÄÈ</a>"));
 
+	callback(resp);
+}
+
+
+void server::MainServer::test20240210_getpy(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback, std::string&& cch) const {
+	wstring wch = ConvertUTF8ToUTF16(cch);
+	wchar_t c = wch[0];
+	HttpResponsePtr resp = HttpResponse::newHttpResponse();
+	resp->setContentTypeCode(CT_TEXT_PLAIN);
+	WzhePinYin::Pinyin py;
+	if (!py.IsChinese(c)) {
+		resp->setBody(ConvertUTF16ToUTF8(L"²»ÊÇÖÐÎÄ"));
+	}
+	else {
+		vector<string> p = py.GetPinyins(c);
+		string sr;
+		for (auto& i : p)sr += i + ",";
+		resp->setBody(sr);
+	}
 	callback(resp);
 }
 

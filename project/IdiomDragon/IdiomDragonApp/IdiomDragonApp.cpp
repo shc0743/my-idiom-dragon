@@ -23,6 +23,17 @@ void InitAuthTokenVerify(CmdLineW& cl);
 extern unordered_set<string> idioms_database;
 
 
+void UpdateIdiomDatabaseFromFp(fstream& fp) {
+	char buffer[256]{}; string s;
+	while (fp.getline(buffer, 256)) {
+		s = buffer;
+		if (s.empty() || s[0] == 0 || s[0] == '\r' ||
+			s[0] == '\n' || s[0] == ' ' || s[0] == '\t') continue;
+		idioms_database.insert(s);
+	}
+}
+
+
 // wWinMain function: The application will start from here.
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -91,17 +102,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		ConvertUTF16ToUTF8(uploadPath, s_upload);
 		ConvertUTF16ToUTF8(sslCert, s_sslCrt);
 
-
-		fstream fp("database.txt", ios::in);
-		if (fp) {
-			char buffer[256]{};
-			while (fp.getline(buffer, 256)) {
-				idioms_database.insert(buffer);
+		{
+			fstream fp("database.txt", ios::in);
+			if (fp) {
+				UpdateIdiomDatabaseFromFp(fp); fp.close();
 			}
-			fp.close();
-		}
-		else {
-			LOG_ERROR << "database not found";
+			else {
+				LOG_ERROR << "database not found";
+			}
+			fstream fp2("userphrase.txt", ios::in);
+			if (fp2) {
+				UpdateIdiomDatabaseFromFp(fp2); fp2.close();
+			}
 		}
 
 

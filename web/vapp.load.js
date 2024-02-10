@@ -129,7 +129,7 @@ async function InitUserInterfaceByAskingServerState() {
             case 'unassigned':
                 if (globalThis.appInstance_.userState == 'running') {
                     ElMessageBox.alert('对局已结束。', document.title, { type: 'error' }).finally(
-                        () => location.reload()
+                        () => globalThis.appInstance_.instance.isGameEnded = true
                     ); return;
                 }
                 globalThis.appInstance_.userState = 'unassigned';
@@ -180,8 +180,8 @@ async function InitUserInterfaceByAskingServerState() {
         }
         globalThis.appInstance_.instance.sestate = data.state;
         globalThis.appInstance_.instance.semembers = data.members;
-        globalThis.appInstance_.instance.isHost = data.host === globalThis.appInstance_.user.data.name;
-        if (data.state === 16) {
+        globalThis.appInstance_.instance.sehost = data.host;
+        if (data.state >= 16) {
             ws.s({ type: 'get-dragon-data' });
         }
     });
@@ -189,10 +189,27 @@ async function InitUserInterfaceByAskingServerState() {
 
     ws.registerHandler('dragon-event', (ws, data) => {
         // console.log(data);
+        globalThis.appInstance_.instance.sestate = data.state;
         globalThis.appInstance_.instance.currentDragon = data.dragon_user;
         globalThis.appInstance_.instance.currentPhrase = data.dragon_phrase;
         globalThis.appInstance_.instance.roundCount = data.round;
         globalThis.appInstance_.instance.canSkipCount = data.skipCount;
+        globalThis.appInstance_.instance.isLoser = data.isLoser;
+        globalThis.appInstance_.instance.appealingPhrase = data.appealingPhrase;
+
+        if (data.completed) {
+            globalThis.appInstance_.instance.isCompleted = true;
+            globalThis.appInstance_.instance.winner = data.winner;
+        }
+
+        globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
+    });
+
+
+    ws.registerHandler('dragon-s2c-message', (ws, data) => {
+        try {
+            ElMessage[data.msgtype](data.message);
+        } catch (err) { console.error(error) }
     });
 
 
@@ -222,6 +239,33 @@ async function InitUserInterfaceByAskingServerState() {
         });
         ElMessage.success('请耐心等待申诉结果。');
     });
+
+
+    ws.registerHandler('dragon-loser-ack', (ws, data) => {
+        globalThis.appInstance_.instance.isLoser = true;
+    });
+
+
+    ws.registerHandler('receive-dragon-record', (ws, data) => {
+        globalThis.appInstance_.instance.dragonrec = data.records;
+    });
+
+
+    /*ws.registerHandler('judge-appealed-unacceptable-phrase', async (ws, data) => {
+       // globalThis.appInstance_.instance.appealedPhraseToJudge = data.phrase;
+                try { await ElMessageBox.confirm(
+            `有人想将此短语上报为成语。${data.phrase}`,
+            '这是一个成语吗？', {
+            confirmButtonText: '是的',
+            cancelButtonText: '不是',
+            type: 'info',
+        }); } catch { return }
+        ws.s({
+            type: 'judge-unacceptable-phrase',
+            phrase: data.phrase,
+        });
+        ElMessage.success('感谢您的反馈。');
+    });*/
 
     
 }

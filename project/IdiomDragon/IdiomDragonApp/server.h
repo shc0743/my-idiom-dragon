@@ -36,6 +36,16 @@ namespace server {
 	//public:
 	//
 	//};
+	class IdiomAppealPhraseAndUser
+	{
+	public:
+		IdiomAppealPhraseAndUser() :isValid(false) {
+
+		}
+		bool isValid;
+		string user, phrase;
+
+	};
 
 	class ServiceSession
 	{
@@ -49,6 +59,7 @@ namespace server {
 		unordered_map<string, size_t> membersSkipChance;
 		vector<string> membersOrder;
 		unordered_set<string> losers;
+		IdiomAppealPhraseAndUser l_appealingPhrase;
 
 		long long state;
 		deque<string> phrases;
@@ -80,6 +91,8 @@ namespace server {
 			ADD_METHOD_TO(server::MainServer::meinfo, "/api/me", Get, "server::AuthFilter");
 			ADD_METHOD_TO(server::MainServer::accountpunishinfo, "/api/account-punish/query", Get, "server::AuthFilter");
 
+			ADD_METHOD_TO(server::MainServer::test20240210_getpy, "/api/test/20240210/pinyin?char={}", Get, "server::AuthFilter");
+
 		METHOD_LIST_END
 
 
@@ -94,6 +107,8 @@ namespace server {
 		void meinfo(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
 
 		void accountpunishinfo(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) const;
+
+		void test20240210_getpy(const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback, std::string&& cch) const;
 
 	public:
 

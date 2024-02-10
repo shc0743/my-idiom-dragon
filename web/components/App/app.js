@@ -18,7 +18,6 @@ const data = {
             apptitle: '',
             username: '',
             sessionId: '',
-            isHost: false,
             userInput: '',
             userInput_beg: '',
             addsess_value: '',
@@ -29,6 +28,7 @@ const data = {
             networkTimeout: -1,
             sestate: 0,
             semembers: [],
+            sehost: '',
             IsGameStarting: false,
             currentDragon: '',
             currentPhrase: '',
@@ -36,6 +36,13 @@ const data = {
             // canAppeal: false,
             roundCount: 0,
             canSkipCount: 0,
+            isLoser: false,
+            dragonrec: [],
+            isGameEnded: false,
+            // appealedPhraseToJudge: '',
+            isCompleted: false,
+            winner: '',
+            appealingPhrase: '',
 
         };
     },
@@ -63,6 +70,19 @@ const data = {
             if (!this.semembers) return [];
             return this.semembers.map(v => ({ name: v }));
         },
+        dragonrecComputed() {
+            if (!this.dragonrec) return [];
+            return this.dragonrec.map((v, i) => ({ n: i + 1, phrase: v }));
+        },
+        appealingPhraseDlg: {
+            get() {
+                return !!this.appealingPhrase;
+            },
+            set(val) { this.appealingPhrase = '' }
+        },
+        isHost() {
+            return this.sehost === this.username;  
+        },
     },
 
     provide() {
@@ -75,6 +95,7 @@ const data = {
     methods: {
         poperr(t) { ElMessageBox.alert(t, document.title, { type: 'error' }) },
         sememctl(b) { this.$refs.sememdlg[b ? 'showModal' : 'close']() },
+        reloadPage() { location.reload() },
         async uLogin() {
             this.isLogging = true;
 
@@ -225,8 +246,8 @@ const data = {
             });
             ElMessage.info('正在处理...');
         },
-        async leaveSess() {
-            try { await ElMessageBox.confirm(
+        async leaveSess(force) {
+            try { if (!this.isLoser && !force) await ElMessageBox.confirm(
                 '现在离开，您的账户可能遭到惩罚、封禁或删除！<br>确认离开吗？',
                 '离开', {
                 confirmButtonText: '我已知晓风险，确认离开',
@@ -237,7 +258,7 @@ const data = {
             }); } catch { return }
             try {
                 const type = await (await fetch('/api/account-punish/query')).text();
-                await ElMessageBox.confirm(
+                if (!this.isLoser && !force) await ElMessageBox.confirm(
                     '这是最后一次警告！！<br>如果您现在离开，您的账户将遭到惩罚！<br>惩罚内容：' + type + "<br><br>继续操作即代表您同意该惩罚！！！<br>确认继续吗？",
                     '离开', {
                     confirmButtonText: '我自愿承担以上惩罚，确认离开',
@@ -256,8 +277,9 @@ const data = {
             }
         },
         sessionEnded() {
+            this.isGameEnded = true;
             ElMessageBox.alert('会话已结束。', document.title, { type: 'error' })
-                .then(() => location.reload());
+                .catch(() => {});
         },
         async StartGame(period) {
             if (period !== 2) try { await ElMessageBox.confirm(
@@ -270,7 +292,7 @@ const data = {
                 type: 'start-game',
                 param: period === 2 ? this.userInput_beg : undefined,
             });
-            this.IsGameStarting = true;
+            // this.IsGameStarting = true;
             ElMessage.info("正在处理...");
         },
         async SubmitDragon() {
@@ -323,6 +345,18 @@ const data = {
                 useSkipChance: true,
             });
             this.userInput = '';
+        },
+        viewRecord() {
+            globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
+            this.$refs.dragonRecord.showModal();
+        },
+        async submitMyAppeal(val) {
+            globalThis.appInstance_.ws.s({
+                type: 'judge-unacceptable-phrase',
+                result: !!val,
+            });
+            ElMessage.success('感谢您的反馈。');
+            this.appealingPhrase = '';
         },
 
     },

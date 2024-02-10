@@ -95,8 +95,11 @@
                     <span style="user-select: none;">对局 ID: <span style="user-select: all;" v-text="sessionId"></span></span>
                     <span>
                         <ElButton text @click="copySid">复制</ElButton>
-                        <ElButton type="danger" text @click="endSess" v-if="isHost">结束</ElButton>
-                        <ElButton type="danger" text @click="leaveSess" v-else>离开</ElButton>
+                        <ElButton v-if="isGameEnded" type="primary" text @click="reloadPage">重新加载</ElButton>
+                        <template v-else>
+                            <ElButton type="danger" text @click="endSess" v-if="isHost">结束</ElButton>
+                            <ElButton type="danger" text @click="leaveSess(false)" v-else>离开</ElButton>
+                        </template>
                     </span>
                 </div>
                 <div class="semem" v-deep v-if="semembers">
@@ -112,6 +115,7 @@
                         <ElButton text @click="viewRecord">查看</ElButton>
                     </div>
                 </div>
+                <div v-if="isLoser" class="loser-toptip" v-deep>你已经认输，可以继续观战或选择离开。</div>
                 <style>
                 .card-header>>> {
                     display: flex;
@@ -127,11 +131,18 @@
                 .semembers:modal>>> {
                     display: flex;
                 }
+                .loser-toptip>>> {
+                    display: block;
+                    background-color: rgba(255,0,0,0.1);
+                    padding: 5px;
+                    border: 1px solid gray;
+                    border-radius: 10px;
+                }
                 </style>
             </ElCard>
-            <dialog v-deep class="semembers" ref="sememdlg" style="min-width: 300px; flex-direction: column;">
+            <dialog v-deep class="semembers" ref="sememdlg" style="min-width: 300px; flex-direction: column; min-height: 200px;">
                 <div style="font-size: xx-large; font-weight: bold;">对局成员</div>
-                <ElTable :data="semembersComputed" stripe style="width: 100%; flex: 1; overflow: auto;">
+                <ElTable :data="semembersComputed" style="width: 100%; flex: 1; overflow: auto;">
                     <ElTableColumn prop="name" label="用户名" />
                     <ElTableColumn fixed="right" label="操作" width="90">
                         <template #default="scope">
@@ -160,13 +171,23 @@
                     </div>
                 </template>
                 <template v-else>
-                    <h1>请耐心等待<span v-if="semembers" v-text="semembers[0]"></span>开始接龙。</h1>
+                    <h1>请耐心等待<span v-if="semembers" v-text="sehost"></span>开始接龙。</h1>
                 </template>
             </div>
             <div style="flex: 1" id="mainInputArea" class="app-area" v-if="sestate === 16">
+                <div style="font-size: x-large; " v-deep class="current-state-list">
+                    <ElDescriptions :column="1" size="large" border v-deep>
+                        <ElDescriptionsItem>
+                            <template #label>当前接龙</template>
+                            <span v-text="currentDragon" :style="({color:(currentDragon===username)?'red':undefined})"></span>
+                        </ElDescriptionsItem>
+                        <ElDescriptionsItem>
+                            <template #label>当前成语</template>
+                            <span v-text="currentPhrase"></span>
+                        </ElDescriptionsItem>
+                    </ElDescriptions>
+                </div>
                 <template v-if="currentDragon === username">
-                    <div>当前接龙: <b style="color: red">轮到你了</b></div>
-                    <div>当前成语: <span>{{currentPhrase}}</span></div>
                     <div class="user-input-widget" v-deep><ElInput v-model="userInput" size="large" placeholder="请接..." @keydown.enter.prevent="SubmitDragon" /></div>
                     <div>
                         <ElButton type="primary" plain size="large" @click="SubmitDragon" :disabled="!userInput">提交</ElButton>
@@ -177,11 +198,35 @@
                         <!-- <ElButton color="#626aef" plain size="large" @click="getTip">求助</ElButton> -->
                     </div>
                 </template>
-                <div v-else style="font-size: x-large;">
-                    <div>当前接龙: <span>{{currentDragon}}</span></div>
-                    <div>当前成语: <span>{{currentPhrase}}</span></div>
+                <style>.current-state-list>>> * { font-size: inherit !important; }.current-state-list>>> .el-descriptions__cell { padding: 20px !important; }</style>
+            </div>
+            <div style="flex: 1" class="app-area" v-if="sestate === 100">
+                <h1 style="font-size: 2em; font-weight: bold;">对局已结束</h1>
+                <div>赢家：<span v-text="winner"></span></div>
+                <div style="margin-top: 1em;">
+                    <ElButton type="primary" plain size="large" @click="leaveSess(true)">完成</ElButton>
+                    <ElButton size="large" @click="" v-if="isHost" :disabled="true">再来一局</ElButton>
                 </div>
             </div>
+            <dialog v-deep ref="dragonRecord" style="min-width: 300px; flex-direction: column; min-height: 200px;">
+                <div style="font-size: xx-large; font-weight: bold;">对局记录</div>
+                <div style="text-align: right; margin-top: 1em;">
+                    <ElButton type="primary" plain @click="$refs.dragonRecord.close()">关闭</ElButton>
+                </div>
+                <ElTable :data="dragonrecComputed" style="width: 100%; flex: 1; overflow: auto;">
+                    <ElTableColumn prop="n" label="回合" width="60" />
+                    <ElTableColumn prop="phrase" label="成语" />
+                </ElTable>
+            </dialog>
+            <ElDialog v-if="username !== currentDragon" v-model="appealingPhraseDlg">
+                <div style="font-size: x-large; white-space: normal;">有人想将此短语上报为成语。</div>
+                <div><span v-text="appealingPhrase"></span></div>
+                <div style="margin-top: 0.5em;">它是一个成语吗？</div>
+                <div style="margin-top: 1em; text-align: right;">
+                    <ElButton type="primary" plain @click="submitMyAppeal(true)">是的</ElButton>
+                    <ElButton type="danger" plain @click="submitMyAppeal(false)">不是</ElButton>
+                </div>
+            </ElDialog>
             <style>.user-input-widget>>> {
                 max-width: 50%;
                 margin: 1em 0;

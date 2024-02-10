@@ -2,6 +2,7 @@
 #include <string>
 #include "../../resource/tool.h"
 #include <openssl/evp.h>
+#include "../lib/Pinyin.h"
 using namespace server;
 using namespace drogon;
 
@@ -119,6 +120,46 @@ static void UpdateMembersOrderForSess(shared_ptr<ServiceSession> ss) {
 		if (!ss->losers.contains(i.first)) ss->membersOrder.push_back(i.first);
 	}
 }
+static void StepMemberIndexForSess(shared_ptr<ServiceSession> ss) {
+	long long new_index = ss->current_dragon_user_index + 1;
+	if ((size_t)new_index >= (ss->membersOrder.size())) new_index = 0;
+	ss->current_dragon_user_index = new_index;
+}
+static void RemoveMemberInSess(shared_ptr<ServiceSession> ss, string user) {
+	auto cindex = ss->current_dragon_user_index;
+	auto& myVector = ss->membersOrder;
+	auto it = std::find(myVector.begin(), myVector.end(), user);
+	if (it != myVector.end()) {
+		auto uindex = std::distance(myVector.begin(), it);
+		ss->membersOrder.erase(it);
+		if (cindex >= uindex) {
+			// 删除user会对后面的用户产生影响，需要处理
+			ss->current_dragon_user_index -= 1;
+			if (ss->current_dragon_user_index < 0) 
+				ss->current_dragon_user_index = ss->membersOrder.size() - 1;
+		}
+	}
+	ss->members.erase(user);
+	userName2sesId.erase(user);
+	UpdateMembersOrderForSess(ss);
+}
+static void MoveMemberToLosersInSess(shared_ptr<ServiceSession> ss, string user) {
+	ss->losers.insert(user);
+	//UpdateMembersOrderForSess(ss);
+	auto cindex = ss->current_dragon_user_index;
+	auto& myVector = ss->membersOrder;
+	auto it = std::find(myVector.begin(), myVector.end(), user);
+	if (it != myVector.end()) {
+		auto uindex = std::distance(myVector.begin(), it);
+		if (cindex >= uindex) {
+			// 删除user会对后面的用户产生影响，需要处理
+			ss->current_dragon_user_index -= 1;
+			if (ss->current_dragon_user_index < 0) 
+				ss->current_dragon_user_index = ss->membersOrder.size() - 2;
+		}
+	}
+	UpdateMembersOrderForSess(ss);
+}
 
 
 static void UpdateInfluencedUserWebUI(string session_id) {
@@ -141,7 +182,6 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 		shared_ptr<ServiceSession> ss = sesId2details.at(ses);
 		Json::Value val;
 		val["type"] = "dragon-event";
-		val["state"] = ss->state;
 		val["host"] = ss->host;
 		val["round"] = ss->phrases.size();
 		val["dragon_phrase"] = ss->phrases.empty() ? 
@@ -152,6 +192,15 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 		catch (std::out_of_range) {
 			val["dragon_user"] = Json::Value(Json::nullValue);
 		}
+		if (ss->membersOrder.size() == 1) {
+			val["completed"] = true;
+			val["winner"] = ss->membersOrder.at(0);
+			if (ss->state != 100) ss->state = 100;
+		}
+		if (ss->l_appealingPhrase.isValid) {
+			val["appealingPhrase"] = ss->l_appealingPhrase.phrase;
+		}
+		val["state"] = ss->state;
 		for (auto& i : ss->members) {
 			if (!targetUser.empty() && i.first != targetUser) continue;
 			try {
@@ -160,6 +209,7 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 			catch (std::out_of_range) {
 				val["skipCount"] = 0;
 			}
+			val["isLoser"] = ss->losers.contains(i.first);
 			for (auto& j : i.second) {
 				Json::FastWriter fastWriter;
 				j->send(fastWriter.write(val));
@@ -273,7 +323,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 
 			shared_ptr<ServiceSession> ss = sesId2details.at(sesId);
 
-			if (ss->host == user) {
+			if (ss->host == user && ss->state != 100) {
 				for (const auto& i : ss->members) {
 					auto& un = i.first;
 					userName2sesId.erase(un);
@@ -284,8 +334,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				sesId2details.erase(sesId);
 			}
 			else {
-				ss->members.erase(user);
-				userName2sesId.erase(user);
+				RemoveMemberInSess(ss, user);
 				UpdateInfluencedUserWebUI(sesId);
 				UpdateMembersOrderForSess(ss);
 			}
@@ -357,10 +406,10 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				if (ss->state != 1 && ss->state != 2) {
 					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
 				}
+				if (ss->members.size() < 2) {
+					throw ccs8("成员数量不足。");
+				}
 				if (ss->state == 2) {
-					if (ss->members.size() < 2) {
-						//throw ccs8("成员数量不足。请重新开始此会话。");
-					}
 					string param = json["param"].asString();
 					if (!idioms_database.contains(param)) {
 						throw ccs8("抱歉，但“") + param + ccs8("”似乎不是成语。");
@@ -391,9 +440,9 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			try {
 				string ses = userName2sesId.at(user);
 				shared_ptr<ServiceSession> ss = sesId2details.at(ses);
-				if (ss->state != 16) {
+				if (ss->state != 16 && ss->state != 100) {
 					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
-				}
+				} 
 				wsReplyDragon(ses, user);
 			}
 			catch (string s) {
@@ -410,6 +459,9 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			try {
 				string ses = userName2sesId.at(user);
 				shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+				if (ss->state != 16) {
+					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+				}
 				if (ss->membersOrder[ss->current_dragon_user_index] != user) {
 					throw ccs8("当前不是你的回合。");
 				}
@@ -421,14 +473,37 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 					ss->membersSkipChance[user] = chances - 1;
 					param = ss->phrases.at(0);
 				}
-				else if (!idioms_database.contains(param)) {
-					val["type"] = "dragon-unacceptable-phrase";
-					val["phrase"] = param;
-					throw ""s;
+				else {
+					wstring wcsUserPhrase = ConvertUTF8ToUTF16(param);
+					wstring wcsLastPhrase = ConvertUTF8ToUTF16(ss->phrases[0]);
+					if (wcsUserPhrase[0] != wcsLastPhrase[wcsLastPhrase.length() - 1]) {
+						// 允许同音
+						WzhePinYin::Pinyin py;
+						wchar_t cch = wcsUserPhrase[0];
+						wchar_t cch2 = wcsLastPhrase[wcsLastPhrase.length() - 1];
+						if (!(py.IsChinese(cch) && py.IsChinese(cch2))) {
+							throw ccs8("提供的成语不符合规则。");
+						}
+						vector<string>
+							py1 = py.GetPinyins(cch),
+							py2 = py.GetPinyins(cch2);
+						bool r = false;
+						for (auto& i : py1) {
+							for (auto& j : py2) {
+								if (i == j) { r = true; break; }
+							}
+						}
+						if (!r) {
+							throw ccs8("提供的成语不符合规则。");
+						}
+					}
+					if (!idioms_database.contains(param)) {
+						val["type"] = "dragon-unacceptable-phrase";
+						val["phrase"] = param;
+						throw ""s;
+					}
 				}
-				long long new_index = ss->current_dragon_user_index + 1;
-				if ((size_t)new_index >= ss->members.size()) new_index = 0;
-				ss->current_dragon_user_index = new_index;
+				StepMemberIndexForSess(ss);
 				ss->phrases.push_front(param);
 				wsReplyDragon(ses);
 			}
@@ -450,8 +525,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
 				}
 
-				ss->losers.insert(user);
-				UpdateMembersOrderForSess(ss);
+				MoveMemberToLosersInSess(ss, user);
 				wsReplyDragon(ses, user);
 
 				Json::FastWriter fastWriter;
@@ -462,18 +536,96 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				}
 				val["type"] = "dragon-s2c-message";
 				val["msgtype"] = "success";
-				val["message"] = user + " 认输了！";
+				val["message"] = user + ccs8(" 认输了！");
 				for (auto& i : ss->members) {
 					for (auto& j : i.second) {
 						j->send(fastWriter.write(val));
 					}
 				}
+				wsReplyDragon(ses);
 			}
 			catch (string s) {
 				val["error"] = s;
 				Json::FastWriter fastWriter;
 				wsConnPtr->send(fastWriter.write(val));
 			}
+			return;
+		}
+
+		if (type == "get-dragon-record") {
+			Json::Value val;
+			val["type"] = "receive-dragon-record";
+
+			string ses = userName2sesId.at(user);
+			shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+			if (ss->state != 16) {
+				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+			}
+			Json::Value records(Json::arrayValue);
+			for (size_t i = ss->phrases.size(); i > 0; --i) {
+				records.append(ss->phrases[i - 1]);
+			}
+			val["records"] = records;
+			
+			Json::FastWriter fastWriter;
+			wsConnPtr->send(fastWriter.write(val));
+			return;
+		}
+
+		if (type == "appeal-unacceptable-phrase") {
+			Json::Value val;
+			string ses = userName2sesId.at(user);
+			shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+			if (ss->state != 16) {
+				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+			}
+			string phrase = json["phrase"].asString();
+			ss->l_appealingPhrase.isValid = true;
+			ss->l_appealingPhrase.user = user;
+			ss->l_appealingPhrase.phrase = phrase;
+			wsReplyDragon(ses);
+			return;
+		}
+
+		if (type == "judge-unacceptable-phrase") {
+			Json::Value val;
+			string ses = userName2sesId.at(user);
+			shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+			if (ss->state != 16 || ss->l_appealingPhrase.isValid == false) {
+				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+			}
+			if (ss->l_appealingPhrase.user == user) {
+				throw ccs8("你没有权限执行此操作。");
+			}
+
+			string phrase = ss->l_appealingPhrase.phrase;
+			bool result = json["result"].asBool();
+			if (!result) {
+				ss->l_appealingPhrase.isValid = false;
+				wsReplyDragon(ses);
+				return;
+			}
+			idioms_database.insert(phrase);
+			// 将更改保存到文件系统
+			{
+				fstream fp("userphrase.txt", ios::app);
+				fp.write(phrase.c_str(), phrase.length());
+				fp.write("\r\n", 2);
+			}
+			val["type"] = "dragon-s2c-message";
+			val["msgtype"] = "success";
+			val["message"] = ccs8("申诉成功！");
+			Json::FastWriter fastWriter;
+			try {
+				for (auto& i : ss->members.at(ss->l_appealingPhrase.user)) {
+					i->send(fastWriter.write(val));
+				}
+			}
+			catch (std::out_of_range) {}
+			ss->phrases.push_front(phrase);
+			StepMemberIndexForSess(ss);
+			ss->l_appealingPhrase.isValid = false;
+			wsReplyDragon(ses);
 			return;
 		}
 
