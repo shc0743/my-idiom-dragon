@@ -145,7 +145,7 @@
                 <ElTable :data="semembersComputed" style="width: 100%; flex: 1; overflow: auto;">
                     <ElTableColumn prop="name" label="用户名">
                         <template #default="scope">
-                            <span :style="({color:(scope.row.isLoser?'green':'inherit')})">{{scope.row.name}}</span>
+                            <span :style="({color:(scope.row.isLoser?'red':'inherit')})">{{scope.row.name}}</span>
                         </template>
                     </ElTableColumn>
                     <ElTableColumn fixed="right" label="操作" width="90">
@@ -170,7 +170,8 @@
                 <template v-if="isHost">
                     <div style="font-size: 2em; font-weight: bold;">输入一个成语，开始接龙</div>
                     <div class="user-input-widget" v-deep><ElInput v-model="userInput_beg" size="large" /></div>
-                    <div>
+                    <ElCheckbox v-model="userInput_noRepeat" label="不允许重复" />
+                    <div style="margin-top: 1em;">
                         <ElButton type=primary plain size="large" @click="StartGame(2)">开始</ElButton>
                     </div>
                 </template>

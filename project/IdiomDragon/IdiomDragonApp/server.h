@@ -50,7 +50,12 @@ namespace server {
 	class ServiceSession
 	{
 	public:
-		ServiceSession() : state(0), current_dragon_user_index(-1), l_aiMode(false) {};
+		ServiceSession() :
+			state(0),
+			current_dragon_user_index(-1),
+			l_aiMode(false),
+			noRepeatPhrase(false)
+		{};
 		~ServiceSession() = default;
 	public:
 		string host;
@@ -65,6 +70,7 @@ namespace server {
 		deque<string> phrases;
 		long long current_dragon_user_index;
 
+		bool noRepeatPhrase;
 		bool l_aiMode;
 		string winnerStr;
 

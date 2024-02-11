@@ -430,6 +430,9 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 					}
 					ss->phrases.push_front(param);
 					ss->state = 16;
+					if (json["noRepeat"].isBool() && json["noRepeat"].asBool()) {
+						ss->noRepeatPhrase = true;
+					}
 					UpdateInfluencedUserWebUI(ses);
 					ss->current_dragon_user_index = (std::min)(size_t(1), ss->members.size() - 1);
 					UpdateMembersOrderForSess(ss);
@@ -488,6 +491,14 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 					param = ss->phrases.at(0);
 				}
 				else {
+					if (ss->noRepeatPhrase)
+						for (size_t i = 0, l = ss->phrases.size(); i < l; ++i) {
+							if (param == ss->phrases[i]) { // 发现重复
+								throw ccs8("该对局要求给出的成语不重复，「") +
+									param + ccs8("」不符合规则。(在第" +
+										to_wstring(l - i) + L"回合出现)");
+							}
+						}
 					wstring wcsUserPhrase = ConvertUTF8ToUTF16(param);
 					wstring wcsLastPhrase = ConvertUTF8ToUTF16(ss->phrases[0]);
 					if (wcsUserPhrase[0] != wcsLastPhrase[wcsLastPhrase.length() - 1]) {

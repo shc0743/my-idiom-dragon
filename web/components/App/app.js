@@ -44,6 +44,7 @@ const data = {
             winner: '',
             appealingPhrase: '',
             losers: [],
+            userInput_noRepeat: false,
 
         };
     },
@@ -291,6 +292,7 @@ const data = {
             globalThis.appInstance_.ws.s({
                 type: 'start-game',
                 param: period === 2 ? this.userInput_beg : undefined,
+                noRepeat: this.userInput_noRepeat ? true : undefined,
             });
             // this.IsGameStarting = true;
             ElMessage.info("正在处理...");
