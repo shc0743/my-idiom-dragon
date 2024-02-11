@@ -53,7 +53,7 @@ void WebSocketService::handleNewConnection(const HttpRequestPtr& req, const WebS
 		string uname = loginSess2UserName.at(sess);
 		string session_id = userName2sesId.at(uname);
 		shared_ptr<ServiceSession> ss = sesId2details.at(session_id);
-		auto& connections = ss->members.at(uname);
+		auto& connections = ss->membersToConnections.at(uname);
 		connections.push_back(wsConnPtr);
 	}
 	catch (std::exception) {}
@@ -68,7 +68,7 @@ void WebSocketService::handleConnectionClosed(const WebSocketConnectionPtr& wsCo
 		string uname = loginSess2UserName.at(sess);
 		string session_id = userName2sesId.at(uname);
 		shared_ptr<ServiceSession> ss = sesId2details.at(session_id);
-		auto& vec = ss->members.at(uname);
+		auto& vec = ss->membersToConnections.at(uname);
 		vec.erase(std::remove(vec.begin(), vec.end(), wsConnPtr), vec.end());
 	}
 	catch (std::exception) {}
@@ -101,7 +101,7 @@ static void WsSendSessState(const WebSocketConnectionPtr& wsConnPtr, const strin
 		val["host"] = ss->host;
 		Json::Value members(Json::arrayValue);
 		for (const auto& i : ss->members) {
-			members.append(i.first);
+			members.append(i);
 		}
 		val["members"] = members;
 	}
@@ -117,7 +117,7 @@ static void WsSendSessState(const WebSocketConnectionPtr& wsConnPtr, const strin
 static void UpdateMembersOrderForSess(shared_ptr<ServiceSession> ss) {
 	ss->membersOrder.clear();
 	for (auto& i : ss->members) {
-		if (!ss->losers.contains(i.first)) ss->membersOrder.push_back(i.first);
+		if (!ss->losers.contains(i)) ss->membersOrder.push_back(i);
 	}
 }
 static void StepMemberIndexForSess(shared_ptr<ServiceSession> ss) {
@@ -139,7 +139,8 @@ static void RemoveMemberInSess(shared_ptr<ServiceSession> ss, string user) {
 				ss->current_dragon_user_index = ss->membersOrder.size() - 1;
 		}
 	}
-	ss->members.erase(user);
+	ss->members.erase(std::find(ss->members.begin(), ss->members.end(), user));
+	ss->membersToConnections.erase(user);
 	userName2sesId.erase(user);
 	UpdateMembersOrderForSess(ss);
 }
@@ -165,7 +166,7 @@ static void MoveMemberToLosersInSess(shared_ptr<ServiceSession> ss, string user)
 static void UpdateInfluencedUserWebUI(string session_id) {
 	try {
 		shared_ptr<ServiceSession> ss = sesId2details.at(session_id);
-		for (auto& i : ss->members) {
+		for (auto& i : ss->membersToConnections) {
 			for (auto& j : i.second) {
 				WsSendUserState(j, i.first);
 				WsSendSessState(j, session_id);
@@ -211,7 +212,7 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 		}
 		val["losers"] = losers;
 		val["state"] = ss->state;
-		for (auto& i : ss->members) {
+		for (auto& i : ss->membersToConnections) {
 			if (!targetUser.empty() && i.first != targetUser) continue;
 			try {
 				val["skipCount"] = ss->membersSkipChance.at(i.first);
@@ -306,7 +307,8 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				ss->host = user;
 				vector<WebSocketConnectionPtr> conn;
 				conn.push_back(wsConnPtr);
-				ss->members.insert(make_pair(user, conn));
+				ss->members.push_back(user);
+				ss->membersToConnections.insert(make_pair(user, conn));
 				ss->membersSkipChance.insert(make_pair(user, MEMBER_CAN_SKIP_TIME));
 				ss->state = 1;
 				sesId2details.insert(make_pair(session_id, ss));
@@ -329,7 +331,8 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				}
 				vector<WebSocketConnectionPtr> conn;
 				conn.push_back(wsConnPtr);
-				ss->members.insert(make_pair(user, conn));
+				ss->members.push_back(user);
+				ss->membersToConnections.insert(make_pair(user, conn));
 				ss->membersSkipChance.insert(make_pair(user, MEMBER_CAN_SKIP_TIME));
 				val["success"] = true;
 				val["sid"] = session_id;
@@ -356,7 +359,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			shared_ptr<ServiceSession> ss = sesId2details.at(sesId);
 
 			if (ss->host == user && ss->state != 100) {
-				for (const auto& i : ss->members) {
+				for (const auto& i : ss->membersToConnections) {
 					auto& un = i.first;
 					userName2sesId.erase(un);
 					for (auto& j : i.second)
@@ -401,7 +404,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				}
 
 				try {
-					auto& vec = ss->members.at(tuser);
+					auto& vec = ss->membersToConnections.at(tuser);
 					Json::Value v2;
 					v2["type"] = "dragon-removed-from-session";
 					v2["error"] = ccs8("您被移出对局");
@@ -516,7 +519,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 					if (ss->noRepeatPhrase)
 						for (size_t i = 0, l = ss->phrases.size(); i < l; ++i) {
 							if (param == ss->phrases[i]) { // 发现重复
-								throw ccs8("该对局要求给出的成语不重复，「") +
+								throw ccs8("该对局不允许给出重复的成语，因此「") +
 									param + ccs8("」不符合规则。(在第" +
 										to_wstring(l - i) + L"回合出现)");
 							}
@@ -560,14 +563,14 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 
 				Json::FastWriter fastWriter;
 				val["type"] = "dragon-loser-ack";
-				auto& i = ss->members.at(user);
+				auto& i = ss->membersToConnections.at(user);
 				for (auto& j : i) {
 					j->send(fastWriter.write(val));
 				}
 				val["type"] = "dragon-s2c-message";
 				val["msgtype"] = "success";
 				val["message"] = user + ccs8(" 认输了！");
-				for (auto& i : ss->members) {
+				for (auto& i : ss->membersToConnections) {
 					for (auto& j : i.second) {
 						j->send(fastWriter.write(val));
 					}
@@ -609,7 +612,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			if (ss->state != 16) {
 				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
 			}
-			if (ss->l_appealingPhrase.user != user) {
+			if (ss->membersOrder.at(ss->current_dragon_user_index) != user) {
 				throw ccs8("你没有权限执行此操作。");
 			}
 			string phrase = json["phrase"].asString();
@@ -655,7 +658,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			val["message"] = ccs8("申诉成功！");
 			Json::FastWriter fastWriter;
 			try {
-				for (auto& i : ss->members.at(ss->l_appealingPhrase.user)) {
+				for (auto& i : ss->membersToConnections.at(ss->l_appealingPhrase.user)) {
 					i->send(fastWriter.write(val));
 				}
 			}

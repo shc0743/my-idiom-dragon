@@ -60,7 +60,8 @@ namespace server {
 	public:
 		string host;
 		//vector<ServiceSessionMember> members;
-		unordered_map<string, vector<WebSocketConnectionPtr>> members;
+		vector<string> members;
+		unordered_map<string, vector<WebSocketConnectionPtr>> membersToConnections;
 		unordered_map<string, size_t> membersSkipChance;
 		vector<string> membersOrder;
 		unordered_set<string> losers;
