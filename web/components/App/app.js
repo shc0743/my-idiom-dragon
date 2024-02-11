@@ -385,6 +385,9 @@ const data = {
         },
         // currentDragon() { this.canAppeal = false },
         // currentPhrase() { this.canAppeal = false },
+        roundCount() {
+            if (this.isLoser) globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
+        },
 
     },
 
