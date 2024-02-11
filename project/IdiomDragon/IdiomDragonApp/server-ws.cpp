@@ -694,6 +694,9 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				if (ss->members.size() < ss->membersCountWhenEnded) {
 					throw ccs8("有成员离开了对局，无法继续。");
 				}
+				if (ss->members.size() < 2) {
+					throw ccs8("成员数量不足以发起一次新对局。");
+				}
 				if (time(0) - ss->challengeAgainRequestTime < 10) {
 					throw ccs8("请求过于频繁。10秒内只能发起一次请求。");
 				}

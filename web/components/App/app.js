@@ -267,16 +267,19 @@ const data = {
                 dangerouslyUseHTMLString: true,
             }); } catch { return }
             try {
-                const type = await (await fetch('/api/account-punish/query')).text();
-                if (!this.isLoser && !force) await ElMessageBox.confirm(
-                    '这是最后一次警告！！<br>如果您现在离开，您的账户将遭到惩罚！<br>惩罚内容：' + type + "<br><br>继续操作即代表您同意该惩罚！！！<br>确认继续吗？",
-                    '离开', {
-                    confirmButtonText: '我自愿承担以上惩罚，确认离开',
-                    cancelButtonText: '不离开',
-                    type: 'error',
-                    draggable: true,
-                    dangerouslyUseHTMLString: true,
-                });
+                if (!this.isLoser && !force) {
+                    const type = await (await fetch('/api/account-punish/query')).text();
+                    await ElMessageBox.confirm(
+                        '这是最后一次警告！！<br>如果您现在离开，您的账户将遭到惩罚！<br>惩罚内容：' +
+                        type + "<br><br>继续操作即代表您同意该惩罚！！！<br>确认继续吗？",
+                        '离开', {
+                        confirmButtonText: '我自愿承担以上惩罚，确认离开',
+                        cancelButtonText: '不离开',
+                        type: 'error',
+                        draggable: true,
+                        dangerouslyUseHTMLString: true,
+                    });
+                }
                 appInstance_.ws.s({
                     type: 'leave-session',
                     sid: this.sessionId,
