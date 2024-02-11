@@ -192,14 +192,24 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 		catch (std::out_of_range) {
 			val["dragon_user"] = Json::Value(Json::nullValue);
 		}
-		if (ss->membersOrder.size() == 1) {
+		if ((ss->membersOrder.size() == 1 && ss->state >= 2) || !ss->winnerStr.empty()) {
 			val["completed"] = true;
-			val["winner"] = ss->membersOrder.at(0);
-			if (ss->state != 100) ss->state = 100;
+			if (ss->winnerStr.empty()) {
+				val["winner"] = ss->winnerStr = ss->membersOrder.at(0);
+				if (ss->state != 100) ss->state = 100;
+			}
+			else {
+				val["winner"] = ss->winnerStr;
+			}
 		}
 		if (ss->l_appealingPhrase.isValid) {
 			val["appealingPhrase"] = ss->l_appealingPhrase.phrase;
 		}
+		Json::Value losers(Json::arrayValue);
+		for (auto& i : ss->losers) {
+			losers.append(i);
+		}
+		val["losers"] = losers;
 		val["state"] = ss->state;
 		for (auto& i : ss->members) {
 			if (!targetUser.empty() && i.first != targetUser) continue;
@@ -360,14 +370,15 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				if (ss->host != user) {
 					throw std::exception(ccs8("你没有访问此对象的权限。").c_str());
 				}
+				if (tuser == user) {
+					throw std::exception(ccs8("不可以移出自己。").c_str());
+				}
 
 				try {
 					auto& vec = ss->members.at(tuser);
 					Json::Value v2;
-					v2["type"] = "error-ui";
-					v2["modal"] = true;
-					v2["refresh"] = true;
-					v2["error"] = ccs8("您被请出对局");
+					v2["type"] = "dragon-removed-from-session";
+					v2["error"] = ccs8("您被移出对局");
 					for (auto& i : vec) {
 						Json::FastWriter fastWriter;
 						i->send(fastWriter.write(v2));
@@ -379,9 +390,8 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				catch (std::exception exc) {
 					throw std::exception((ccs8("请离用户时发生C++异常: ") + exc.what()).c_str());
 				}
-				ss->members.erase(tuser);
-				userName2sesId.erase(tuser);
-
+				RemoveMemberInSess(ss, tuser);
+				wsReplyDragon(session_id);
 				UpdateInfluencedUserWebUI(session_id);
 
 			}
@@ -503,6 +513,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 						throw ""s;
 					}
 				}
+				ss->l_appealingPhrase.isValid = false;
 				StepMemberIndexForSess(ss);
 				ss->phrases.push_front(param);
 				wsReplyDragon(ses);
@@ -558,7 +569,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 
 			string ses = userName2sesId.at(user);
 			shared_ptr<ServiceSession> ss = sesId2details.at(ses);
-			if (ss->state != 16) {
+			if (ss->state != 16 && ss->state != 100) {
 				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
 			}
 			Json::Value records(Json::arrayValue);

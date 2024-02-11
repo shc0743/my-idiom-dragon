@@ -176,6 +176,7 @@ bool IsUserAccountInfoValid(const std::string& userInfo) {
 
 bool WsCreateUser(string username, string password) {
 	if (!IsUserAccountInfoValid(username) || !IsUserAccountInfoValid(password)) return false;
+	if (username.empty() || password.empty()) return false;
 	// 确保这个用户名没有被注册
 	for (const auto& i : userdata) {
 		if (username == i.name) return false;
@@ -308,7 +309,10 @@ void server::MainServer::reg(const HttpRequestPtr& req, std::function<void(const
 
 	HttpResponsePtr resp = HttpResponse::newHttpResponse();
 	CORSadd(req, resp);
-	if (WsCreateUser(u, p)) {
+	if (u.length() > 16) {
+		resp->setCustomStatusCode(400, "用户名不能超过16个字符");
+	}
+	else if (WsCreateUser(u, p)) {
 		resp->setContentTypeCode(CT_APPLICATION_JSON);
 		resp->setBody("{\"success\":true}");
 	}

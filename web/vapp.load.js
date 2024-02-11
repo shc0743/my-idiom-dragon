@@ -195,6 +195,7 @@ async function InitUserInterfaceByAskingServerState() {
         globalThis.appInstance_.instance.roundCount = data.round;
         globalThis.appInstance_.instance.canSkipCount = data.skipCount;
         globalThis.appInstance_.instance.isLoser = data.isLoser;
+        globalThis.appInstance_.instance.losers = data.losers;
         globalThis.appInstance_.instance.appealingPhrase = data.appealingPhrase;
 
         if (data.completed) {
@@ -202,7 +203,7 @@ async function InitUserInterfaceByAskingServerState() {
             globalThis.appInstance_.instance.winner = data.winner;
         }
 
-        globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
+        // globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
     });
 
 
@@ -248,6 +249,12 @@ async function InitUserInterfaceByAskingServerState() {
 
     ws.registerHandler('receive-dragon-record', (ws, data) => {
         globalThis.appInstance_.instance.dragonrec = data.records;
+    });
+
+
+    ws.registerHandler('dragon-removed-from-session', (ws, data) => {
+        ElMessageBox.alert(data.error, document.title, { type: 'error' }).finally(
+            () => globalThis.appInstance_.instance.isGameEnded = true);
     });
 
 

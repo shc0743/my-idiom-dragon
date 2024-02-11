@@ -43,6 +43,7 @@ const data = {
             isCompleted: false,
             winner: '',
             appealingPhrase: '',
+            losers: [],
 
         };
     },
@@ -68,7 +69,7 @@ const data = {
         },
         semembersComputed() {
             if (!this.semembers) return [];
-            return this.semembers.map(v => ({ name: v }));
+            return this.semembers.map(v => ({ name: v, isLoser: this.losers.includes(v) }));
         },
         dragonrecComputed() {
             if (!this.dragonrec) return [];
@@ -96,6 +97,7 @@ const data = {
         poperr(t) { ElMessageBox.alert(t, document.title, { type: 'error' }) },
         sememctl(b) { this.$refs.sememdlg[b ? 'showModal' : 'close']() },
         reloadPage() { location.reload() },
+        clg() { console.log.apply(console, arguments) },
         async uLogin() {
             this.isLogging = true;
 
@@ -229,9 +231,6 @@ const data = {
         async leaveSessByUserIndex(index) {
             this.sememctl(false);
             const un = this.semembers[index];
-            if (un === globalThis.appInstance_.user.data.name) {
-                ElMessage.error('不能请离自己'); return this.sememctl(true);
-            }
             try { await ElMessageBox.confirm(
                 '是否请离用户: ' + un,
                 '请离', {
@@ -247,6 +246,7 @@ const data = {
             ElMessage.info('正在处理...');
         },
         async leaveSess(force) {
+            if (this.sestate === 100) force = true;
             try { if (!this.isLoser && !force) await ElMessageBox.confirm(
                 '现在离开，您的账户可能遭到惩罚、封禁或删除！<br>确认离开吗？',
                 '离开', {

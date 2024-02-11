@@ -66,6 +66,7 @@ namespace server {
 		long long current_dragon_user_index;
 
 		bool l_aiMode;
+		string winnerStr;
 
 	};
 
