@@ -230,6 +230,28 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 }
 
 
+static bool CheckIdiomPinyin(wstring wcsUserPhrase, wstring wcsLastPhrase) {
+	if (wcsUserPhrase[0] == wcsLastPhrase[wcsLastPhrase.length() - 1]) return true;
+	// 允许同音
+	WzhePinYin::Pinyin py;
+	wchar_t cch = wcsUserPhrase[0];
+	wchar_t cch2 = wcsLastPhrase[wcsLastPhrase.length() - 1];
+	if (!(py.IsChinese(cch) && py.IsChinese(cch2))) {
+		return false;
+	}
+	vector<string>
+		py1 = py.GetPinyins(cch),
+		py2 = py.GetPinyins(cch2);
+	bool r = false;
+	for (auto& i : py1) {
+		for (auto& j : py2) {
+			if (i == j) { r = true; break; }
+		}
+	}
+	return r;
+}
+
+
 static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::string message, const WebSocketMessageType& wstype) {
 	if (message[0] != '{') {
 		if (message == "Here's some text that the server is urgently awaiting!") {
@@ -501,26 +523,8 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 						}
 					wstring wcsUserPhrase = ConvertUTF8ToUTF16(param);
 					wstring wcsLastPhrase = ConvertUTF8ToUTF16(ss->phrases[0]);
-					if (wcsUserPhrase[0] != wcsLastPhrase[wcsLastPhrase.length() - 1]) {
-						// 允许同音
-						WzhePinYin::Pinyin py;
-						wchar_t cch = wcsUserPhrase[0];
-						wchar_t cch2 = wcsLastPhrase[wcsLastPhrase.length() - 1];
-						if (!(py.IsChinese(cch) && py.IsChinese(cch2))) {
-							throw ccs8("提供的成语不符合规则。");
-						}
-						vector<string>
-							py1 = py.GetPinyins(cch),
-							py2 = py.GetPinyins(cch2);
-						bool r = false;
-						for (auto& i : py1) {
-							for (auto& j : py2) {
-								if (i == j) { r = true; break; }
-							}
-						}
-						if (!r) {
-							throw ccs8("提供的成语不符合规则。");
-						}
+					if (!CheckIdiomPinyin(wcsUserPhrase, wcsLastPhrase)) {
+						throw ccs8("提供的成语不符合规则。");
 					}
 					if (!idioms_database.contains(param)) {
 						val["type"] = "dragon-unacceptable-phrase";
@@ -605,6 +609,9 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			if (ss->state != 16) {
 				throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
 			}
+			if (ss->l_appealingPhrase.user != user) {
+				throw ccs8("你没有权限执行此操作。");
+			}
 			string phrase = json["phrase"].asString();
 			ss->l_appealingPhrase.isValid = true;
 			ss->l_appealingPhrase.user = user;
@@ -625,6 +632,11 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			}
 
 			string phrase = ss->l_appealingPhrase.phrase;
+			wstring wcsUser = ConvertUTF8ToUTF16(phrase),
+				wcsLast = ConvertUTF8ToUTF16(ss->phrases[0]);
+			if (!CheckIdiomPinyin(wcsUser, wcsLast)) {
+				throw ccs8("请求无效。");
+			}
 			bool result = json["result"].asBool();
 			if (!result) {
 				ss->l_appealingPhrase.isValid = false;
