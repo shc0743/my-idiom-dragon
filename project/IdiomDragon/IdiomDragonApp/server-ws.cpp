@@ -198,6 +198,7 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 			if (ss->winnerStr.empty()) {
 				val["winner"] = ss->winnerStr = ss->membersOrder.at(0);
 				if (ss->membersCountWhenEnded < 1) ss->membersCountWhenEnded = ss->members.size();
+				if (ss->l_appealingPhrase.isValid) ss->l_appealingPhrase.isValid = false;
 				if (ss->state != 100) ss->state = 100;
 			}
 			else {
@@ -378,6 +379,7 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				sesId2details.erase(sesId);
 			}
 			else {
+				ss->challengeAgainRequestTime = 0;
 				RemoveMemberInSess(ss, user);
 				UpdateInfluencedUserWebUI(sesId);
 				UpdateMembersOrderForSess(ss);
