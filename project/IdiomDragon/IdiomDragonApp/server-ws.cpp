@@ -347,6 +347,10 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 				RemoveMemberInSess(ss, user);
 				UpdateInfluencedUserWebUI(sesId);
 				UpdateMembersOrderForSess(ss);
+
+			}
+			if (ss->members.size() < 1) {
+				sesId2details.erase(sesId); // 在所有成员退出后，清除session数据
 			}
 
 			val["type"] = "refresh-page";

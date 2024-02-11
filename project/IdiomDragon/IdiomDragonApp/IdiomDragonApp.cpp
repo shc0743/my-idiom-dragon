@@ -24,13 +24,19 @@ extern unordered_set<string> idioms_database;
 
 
 void UpdateIdiomDatabaseFromFp(fstream& fp) {
-	char buffer[256]{}; string s;
+	char buffer[256]{}; wstring s;
 	while (fp.getline(buffer, 256)) {
-		s = buffer;
+		s = ConvertUTF8ToUTF16(buffer);
+		while (s.ends_with(L"\r") || s.ends_with(L"\n")) s.erase(s.end() - 1);
+		//wstring p = ConvertUTF8ToUTF16(s);
+		//LOG_DEBUG << "Reading phrase " << ws2s(p);
 		if (s.empty() || s[0] == 0 || s[0] == '\r' ||
-			s[0] == '\n' || s[0] == ' ' || s[0] == '\t') continue;
-		idioms_database.insert(s);
-	}
+			s[0] == '\n' || s[0] == ' ' || s[0] == '\t') {
+			//LOG_DEBUG << "Skipped.";
+			continue;
+		}
+		idioms_database.insert(ConvertUTF16ToUTF8(s));
+	} 
 }
 
 
