@@ -202,6 +202,11 @@ async function InitUserInterfaceByAskingServerState() {
             globalThis.appInstance_.instance.isCompleted = true;
             globalThis.appInstance_.instance.winner = data.winner;
         }
+        if (data.challengeAgain_agreedMembers) {
+            globalThis.appInstance_.instance.challengeAgain_agreedMembers = data.challengeAgain_agreedMembers;
+        } else if (globalThis.appInstance_.instance.challengeAgain_agreedMembers) {
+            globalThis.appInstance_.instance.challengeAgain_agreedMembers = null;
+        }
 
         // globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
     });
@@ -255,6 +260,11 @@ async function InitUserInterfaceByAskingServerState() {
     ws.registerHandler('dragon-removed-from-session', (ws, data) => {
         ElMessageBox.alert(data.error, document.title, { type: 'error' }).finally(
             () => globalThis.appInstance_.instance.isGameEnded = true);
+    });
+
+
+    ws.registerHandler('dragon-start-again-request', (ws, data) => {
+        globalThis.appInstance_.instance.challengeAgain = true;
     });
 
 

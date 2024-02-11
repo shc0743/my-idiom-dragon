@@ -145,7 +145,7 @@
                 <ElTable :data="semembersComputed" style="width: 100%; flex: 1; overflow: auto;">
                     <ElTableColumn prop="name" label="用户名">
                         <template #default="scope">
-                            <span :style="({color:(scope.row.isLoser?'red':'inherit')})">{{scope.row.name}}</span>
+                            <span :style="({color:(scope.row.isLoser?'mediumseagreen':'inherit')})">{{scope.row.name}}</span>
                         </template>
                     </ElTableColumn>
                     <ElTableColumn fixed="right" label="操作" width="90">
@@ -210,7 +210,10 @@
                 <div>赢家：<span v-text="winner"></span></div>
                 <div style="margin-top: 1em;">
                     <ElButton type="primary" plain size="large" @click="leaveSess">完成</ElButton>
-                    <ElButton size="large" @click="" v-if="isHost" :disabled="true">再来一局</ElButton>
+                    <ElButton size="large" @click="startWithSameMember" v-if="isHost">再来一局</ElButton>
+                </div>
+                <div v-if="!isHost" style="margin-top: 1em; color: gray;">
+                    <span>可等待{{sehost}}发起「再次挑战」请求</span>
                 </div>
             </div>
             <dialog v-deep ref="dragonRecord" style="min-width: 300px; flex-direction: column; min-height: 200px;">
@@ -232,6 +235,30 @@
                     <ElButton type="danger" plain @click="submitMyAppeal(false)">不是</ElButton>
                 </div>
             </ElDialog>
+            <ElDialog v-model="challengeAgain" :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false">
+                <div style="font-size: x-large; white-space: normal;">{{sehost}}发起了再次挑战请求。</div>
+                <div style="text-align: center; color: gray; margin-top: 1em;">
+                    <span>10秒内无操作将自动拒绝</span>
+                </div>
+                <div style="margin-top: 1em; display: flex;">
+                    <ElButton style="flex: 1" type="primary" plain @click="submitChallAgainResp(true)" :disabled="challengeAgain_imagreed">{{challengeAgain_imagreed?'已':''}}同意</ElButton>
+                    <ElButton style="flex: 1" type="danger" plain @click="submitChallAgainResp(false)" v-if="!challengeAgain_imagreed">拒绝</ElButton>
+                </div>
+            </ElDialog>
+            <dialog ref="challengeAgain_agreedMembers_dlg" @cancel.prevent>
+                <div style="font-size: xx-large; font-weight: bold;">正在发起再次挑战请求</div>
+                <ElTable :data="challengeAgain_listMembers" style="width: 100%; flex: 1; overflow: auto;">
+                    <ElTableColumn prop="name" label="用户名">
+                        <template #default="scope">
+                            <span :style="({color:(scope.row.isAgreed?'mediumseagreen':'inherit')})">{{scope.row.name}}</span>
+                        </template>
+                    </ElTableColumn>
+                </ElTable>
+
+                <div style="text-align: center; color: gray; margin-top: 1em;">
+                    <span>10秒内无操作将自动取消</span>
+                </div>
+            </dialog>
             <style>.user-input-widget>>> {
                 max-width: 50%;
                 margin: 1em 0;

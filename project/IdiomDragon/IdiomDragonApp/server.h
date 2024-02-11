@@ -54,7 +54,9 @@ namespace server {
 			state(0),
 			current_dragon_user_index(-1),
 			l_aiMode(false),
-			noRepeatPhrase(false)
+			noRepeatPhrase(false),
+			membersCountWhenEnded(0),
+			challengeAgainRequestTime(0)
 		{};
 		~ServiceSession() = default;
 	public:
@@ -73,7 +75,10 @@ namespace server {
 
 		bool noRepeatPhrase;
 		bool l_aiMode;
+		size_t membersCountWhenEnded;
 		string winnerStr;
+		time_t challengeAgainRequestTime;
+		unordered_set<string> challengeAgain_agreedMembers;
 
 	};
 

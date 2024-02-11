@@ -45,6 +45,10 @@ const data = {
             appealingPhrase: '',
             losers: [],
             userInput_noRepeat: false,
+            challengeAgain: false,
+            challengeAgain_agreedMembers: null,
+            challengeAgain_imagreed: false,
+            challengeAgain_tids: {},
 
         };
     },
@@ -84,6 +88,11 @@ const data = {
         },
         isHost() {
             return this.sehost === this.username;  
+        },
+        challengeAgain_listMembers() {
+            if (!this.semembers) return [];
+            if (!this.challengeAgain_agreedMembers) return [];
+            return this.semembers.map(v => ({ name: v, isAgreed: this.challengeAgain_agreedMembers.includes(v) }));
         },
     },
 
@@ -360,6 +369,20 @@ const data = {
             ElMessage.success('感谢您的反馈。');
             this.appealingPhrase = '';
         },
+        async startWithSameMember() {
+            globalThis.appInstance_.ws.s({
+                type: 'start-with-same-members'
+            });
+            ElMessage.info('请稍候...');
+        },
+        submitChallAgainResp(agree) {
+            globalThis.appInstance_.ws.s({
+                type: 'start-with-same-members-resp',
+                agree,
+            });
+            if (agree) this.challengeAgain_imagreed = true;
+            else this.challengeAgain = false;
+        },
 
     },
 
@@ -387,6 +410,28 @@ const data = {
         // currentPhrase() { this.canAppeal = false },
         roundCount() {
             if (this.isLoser) globalThis.appInstance_.ws.s({ type: 'get-dragon-record' });
+        },
+        challengeAgain() {
+            this.challengeAgain_imagreed = false;
+            if (this.challengeAgain) {
+                if (this.challengeAgain_tids[0]) clearTimeout(this.challengeAgain_tids[0]);
+                this.challengeAgain_tids[0] = setTimeout(() => this.challengeAgain = false, 10000);
+            }
+        },
+        challengeAgain_agreedMembers() {
+            if (this.challengeAgain && !this.challengeAgain_agreedMembers) {
+                this.challengeAgain_imagreed = false;
+                this.challengeAgain = false;
+            }
+            if (!this.isHost) return;
+            this.$refs.challengeAgain_agreedMembers_dlg[this.challengeAgain_agreedMembers ? 'showModal' : 'close']();
+            if (this.challengeAgain_agreedMembers) {
+                if (this.challengeAgain_tids[1]) clearTimeout(this.challengeAgain_tids[1]);
+                this.challengeAgain_tids[1] = setTimeout(() => {
+                    this.challengeAgain_agreedMembers = null;
+                    // ElMessage.error('操作超时');
+                }, 10000);
+            }
         },
 
     },

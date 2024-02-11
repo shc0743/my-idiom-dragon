@@ -197,6 +197,7 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 			val["completed"] = true;
 			if (ss->winnerStr.empty()) {
 				val["winner"] = ss->winnerStr = ss->membersOrder.at(0);
+				if (ss->membersCountWhenEnded < 1) ss->membersCountWhenEnded = ss->members.size();
 				if (ss->state != 100) ss->state = 100;
 			}
 			else {
@@ -211,6 +212,14 @@ static void wsReplyDragon(string ses, string targetUser = "") {
 			losers.append(i);
 		}
 		val["losers"] = losers;
+		if (ss->challengeAgainRequestTime && (time(0) - ss->challengeAgainRequestTime < 15)) {
+			val["challengeAgain_requestTime"] = ss->challengeAgainRequestTime;
+			Json::Value members(Json::arrayValue);
+			for (auto& i : ss->challengeAgain_agreedMembers) {
+				members.append(i);
+			}
+			val["challengeAgain_agreedMembers"] = members;
+		}
 		val["state"] = ss->state;
 		for (auto& i : ss->membersToConnections) {
 			if (!targetUser.empty() && i.first != targetUser) continue;
@@ -667,6 +676,142 @@ static void wsProcessMessage(const WebSocketConnectionPtr& wsConnPtr, std::strin
 			StepMemberIndexForSess(ss);
 			ss->l_appealingPhrase.isValid = false;
 			wsReplyDragon(ses);
+			return;
+		}
+
+		if (type == "start-with-same-members") {
+			Json::Value val;
+			val["type"] = "error-ui";
+			try {
+				string ses = userName2sesId.at(user);
+				shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+				if (ss->state != 100) {
+					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+				}
+				if (ss->host != user) {
+					throw ccs8("你没有权限执行此操作。");
+				}
+				if (ss->members.size() < ss->membersCountWhenEnded) {
+					throw ccs8("有成员离开了对局，无法继续。");
+				}
+				if (time(0) - ss->challengeAgainRequestTime < 10) {
+					throw ccs8("请求过于频繁。10秒内只能发起一次请求。");
+				}
+				ss->challengeAgainRequestTime = time(0);
+				ss->challengeAgain_agreedMembers.clear();
+				ss->challengeAgain_agreedMembers.insert(user);
+
+				Json::FastWriter fastWriter;
+				val["type"] = "dragon-start-again-request";
+				for (auto& i : ss->membersToConnections) {
+					if (i.first == user) continue;
+					for (auto& j : i.second) {
+						j->send(fastWriter.write(val));
+					}
+				}
+				wsReplyDragon(ses);
+			}
+			catch (string s) {
+				val["error"] = s;
+				Json::FastWriter fastWriter;
+				wsConnPtr->send(fastWriter.write(val));
+			}
+			return;
+		}
+
+		if (type == "start-with-same-members-resp") {
+			Json::Value val;
+			val["type"] = "error-ui";
+			try {
+				string ses = userName2sesId.at(user);
+				shared_ptr<ServiceSession> ss = sesId2details.at(ses);
+				if (ss->state != 100) {
+					throw ccs8("对处于此阶段的对象，无法在其上执行此操作。");
+				}
+				if (ss->host == user) {
+					throw ccs8("你没有权限执行此操作。");
+				}
+				if (ss->members.size() < ss->membersCountWhenEnded) {
+					throw ccs8("有成员离开了对局，无法继续。");
+				}
+				if (ss->challengeAgain_agreedMembers.contains(user)) {
+					throw ccs8("你已经完成过此操作，请勿重复提交。");
+				}
+				if (time(0) - ss->challengeAgainRequestTime > 15) {
+					throw ccs8("请求已超时。");
+				}
+				
+				bool bAgree = json["agree"].isBool() && json["agree"].asBool();
+				bool bSucceed = false;
+				if (!bAgree) {
+					ss->challengeAgainRequestTime = 0;
+					ss->challengeAgain_agreedMembers.clear();
+
+					Json::FastWriter fastWriter;
+					val["error"] = user + ccs8(" 拒绝了请求。");
+					for (auto& i : ss->membersToConnections) {
+						//if (i.first != ss->host) continue;
+						for (auto& j : i.second) {
+							j->send(fastWriter.write(val));
+						}
+					}
+				}
+				else {
+					ss->challengeAgain_agreedMembers.insert(user);
+					if (ss->challengeAgain_agreedMembers.size() >= ss->membersCountWhenEnded) {
+						// 所有成员均已同意
+
+						// 先清空以前的资料
+						auto& users = ss->members;
+						for (auto& i : users) {
+							// 清除用户的关联
+							userName2sesId.erase(i);
+						}
+						// 清除session的关联
+						sesId2details.erase(ses);
+
+						// 建立新的session
+						Json::Value val;
+						val["type"] = "receive-initsession";
+						do {
+							string session_id = to_string(GenerateMySessId());
+							if (sesId2details.contains(session_id)) {
+								throw ccs8("生成的对局ID出现重复。");
+							}
+							shared_ptr<ServiceSession> ss2 = make_shared<ServiceSession>();
+							ss2->host = ss->host;
+							ss2->state = 2;
+							for (auto& i : users) {
+								ss2->members.push_back(i);
+								ss2->membersToConnections.insert(
+									make_pair(i, ss->membersToConnections.at(i))
+								);
+								ss2->membersSkipChance.insert(make_pair(i, MEMBER_CAN_SKIP_TIME));
+								userName2sesId.insert(make_pair(i, session_id));
+							}
+							if (ss2->members.size() < 1) throw ccs8("成员数量异常");
+							if (ss2->members.size() < 2) ss2->state = 1;
+							sesId2details.insert(make_pair(session_id, ss2));
+							val["success"] = true;
+							val["sid"] = session_id;
+							Json::FastWriter fastWriter;
+							for (auto& i : ss->membersToConnections) {
+								for (auto& j : i.second) {
+									j->send(fastWriter.write(val));
+								}
+							}
+							bSucceed = true;
+						} while (0);
+					}
+				}
+
+				if (!bSucceed) wsReplyDragon(ses);
+			}
+			catch (string s) {
+				val["error"] = s;
+				Json::FastWriter fastWriter;
+				wsConnPtr->send(fastWriter.write(val));
+			}
 			return;
 		}
 
