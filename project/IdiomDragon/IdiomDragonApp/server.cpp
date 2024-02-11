@@ -310,7 +310,8 @@ void server::MainServer::reg(const HttpRequestPtr& req, std::function<void(const
 	HttpResponsePtr resp = HttpResponse::newHttpResponse();
 	CORSadd(req, resp);
 	if (u.length() > 16) {
-		resp->setCustomStatusCode(400, "用户名不能超过16个字符");
+		resp->setCustomStatusCode(400, "Invalid Username");
+		resp->setBody(ConvertUTF16ToUTF8(L"用户名不能超过16个字符"));
 	}
 	else if (WsCreateUser(u, p)) {
 		resp->setContentTypeCode(CT_APPLICATION_JSON);

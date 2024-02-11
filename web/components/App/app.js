@@ -155,7 +155,7 @@ const data = {
                         () => this.current_page = 'login'
                     );
                 }
-                else throw `HTTP 错误: ${login_result.status} - ${login_result.statusText}`
+                else throw `HTTP 错误: ${login_result.status} - ${login_result.statusText}: ${await login_result.text()}`
             } catch (error) {
                 ElMessage.error('注册失败: ' + error);
                 this.isLogging = false;
