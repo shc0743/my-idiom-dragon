@@ -209,7 +209,7 @@
                 <h1 style="font-size: 2em; font-weight: bold;">对局已结束</h1>
                 <div>赢家：<span v-text="winner"></span></div>
                 <div style="margin-top: 1em;">
-                    <ElButton type="primary" plain size="large" @click="leaveSess">完成</ElButton>
+                    <ElButton type="primary" plain size="large" @click="leaveSess">离开对局</ElButton>
                     <ElButton size="large" @click="startWithSameMember" v-if="isHost">再来一局</ElButton>
                 </div>
                 <div v-if="!isHost" style="margin-top: 1em; color: gray;">
