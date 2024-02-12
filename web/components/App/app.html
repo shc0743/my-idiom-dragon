@@ -212,7 +212,7 @@
                     <ElButton type="primary" plain size="large" @click="leaveSess">离开对局</ElButton>
                     <ElButton size="large" @click="startWithSameMember" v-if="isHost">再来一局</ElButton>
                 </div>
-                <div v-if="!isHost" style="margin-top: 1em; color: gray;">
+                <div v-if="!isHost && semembers.includes(sehost)" style="margin-top: 1em; color: gray;">
                     <span>可等待{{sehost}}发起「再次挑战」请求</span>
                 </div>
             </div>
