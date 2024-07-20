@@ -154,6 +154,7 @@ async function InitUserInterfaceByAskingServerState() {
         const text = data.error || data.text;
         if (data.modal) {
             ElMessageBox.alert(text, document.title, { type: 'error' })
+                .catch(() => { }) // to prevent promise error
                 .finally(() => { if (data.refresh) location.reload() });
         } else {
             ElMessage.error(text);
